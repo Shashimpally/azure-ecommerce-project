@@ -2,7 +2,7 @@ name: Backend CI/CD
 
 on:
   push:
-    branches: ["main"]
+    branches: [ "main" ]
     paths:
       - "backend/**"
 
@@ -11,40 +11,28 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Source Code
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Debug secret presence
-        run: |
-          echo "CLIENT ID LENGTH: ${#AZURE_CLIENT_ID}"
-          echo "TENANT ID LENGTH: ${#AZURE_TENANT_ID}"
-        env:
-          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-
-      - name: Azure Login
+      - name: Login to Azure
         uses: azure/login@v2
         with:
-          auth-type: SERVICE_PRINCIPAL
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-          client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: ACR Login using Service Principal
+      - name: Login to ACR
         uses: azure/docker-login@v2
         with:
           login-server: acrecomt5.azurecr.io
-          username: ${{ secrets.AZURE_CLIENT_ID }}
-          password: ${{ secrets.AZURE_CLIENT_SECRET }}
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
 
-      - name: Build & Push Backend Image
+      - name: Build and push image
         run: |
           cd backend
           docker build -t acrecomt5.azurecr.io/ecom-backend:${{ github.sha }} .
           docker push acrecomt5.azurecr.io/ecom-backend:${{ github.sha }}
 
-      - name: Set AKS Context
+      - name: Set AKS context
         uses: azure/aks-set-context@v4
         with:
           resource-group: rg-ecom-dev-t5
@@ -52,5 +40,5 @@ jobs:
 
       - name: Deploy to AKS
         run: |
-          kubectl set image deployment/ecom-backend ecom-backend=acrecomt5.azurecr.io/ecom-backend:${{ github.sha }}
-          kubectl rollout status deployment/ecom-backend
+          sed -i "s#acrecomt5.azurecr.io/ecom-backend:v1#acrecomt5.azurecr.io/ecom-backend:${{ github.sha }}#g" infra/backend-deployment.yaml
+          kubectl apply -f infra/backend-deployment.yaml
