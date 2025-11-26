@@ -1,0 +1,43 @@
+# infra/backend-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ecom-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ecom-backend
+  template:
+    metadata:
+      labels:
+        app: ecom-backend
+    spec:
+      containers:
+        - name: ecom-backend
+          image: acrecomt5.azurecr.io/ecom-backend:v1
+          ports:
+            - containerPort: 4000
+          env:
+            - name: SQL_SERVER
+              value: "your-sql-server.database.windows.net"
+            - name: SQL_DB
+              value: "ecomdb"
+            - name: SQL_USER
+              value: "youradmin"
+            - name: SQL_PASSWORD
+              value: "yourpassword"
+            - name: SQL_ENCRYPT
+              value: "true"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ecom-backend-svc
+spec:
+  selector:
+    app: ecom-backend
+  ports:
+    - port: 4000
+      targetPort: 4000
+  type: ClusterIP
