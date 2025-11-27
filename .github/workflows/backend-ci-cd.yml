@@ -2,7 +2,8 @@ name: Backend CI/CD
 
 on:
   push:
-    branches: [ "main" ]
+    branches: 
+      - "main"
     paths:
       - "backend/**"
 
@@ -14,32 +15,37 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      # Azure Login using full JSON secret: AZURE_CREDENTIALS
       - name: Azure Login
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Login to Azure Container Registry
+      # Login to Azure Container Registry
+      - name: Login to ACR
         uses: azure/docker-login@v2
         with:
           login-server: acrecomt5.azurecr.io
           username: ${{ secrets.ACR_USERNAME }}
           password: ${{ secrets.ACR_PASSWORD }}
 
+      # Build and Push Docker image to ACR
       - name: Build and Push Docker Image
         run: |
           cd backend
           docker build -t acrecomt5.azurecr.io/ecom-backend:${{ github.sha }} .
           docker push acrecomt5.azurecr.io/ecom-backend:${{ github.sha }}
 
+      # Get AKS credentials for kubectl
       - name: Set AKS Context
         uses: azure/aks-set-context@v4
         with:
           resource-group: rg-ecom-dev-t5
           cluster-name: aks-ecom-dev
 
+      # Update deployment image and apply to AKS
       - name: Deploy updated image to AKS
         run: |
-          sed -i "s#acrecomt5.azurecr.io/ecom-backend:.*#acrecomt5.azurecr.io/ecom-backend:${{ github.sha }}#g" infra/backend-deployment.yaml
+          sed -i "s#image:.*#image: acrecomt5.azurecr.io/ecom-backend:${{ github.sha }}#g" infra/backend-deployment.yaml
           kubectl apply -f infra/backend-deployment.yaml
           kubectl rollout status deployment/ecom-backend-deploy
